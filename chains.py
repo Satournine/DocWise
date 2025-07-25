@@ -4,10 +4,10 @@ from langchain.chains import LLMChain
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.chains import create_retrieval_chain
-from langchain_core.documents import Document
-from langchain_core.runnables import Runnable
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_community.retrievers import BM25Retriever
+from langchain.retrievers import EnsembleRetriever
 import os
 from dotenv import load_dotenv
 
@@ -31,12 +31,20 @@ def get_summary_chain():
         model_provider="groq",
     )
 
-    return LLMChain(llm=model, prompt=prompt)
+    return prompt | model | StrOutputParser()
 
 def get_qa_chain(chunks: list[str]):
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vectorstore = FAISS.from_texts(chunks, embeddings)
-    retriever = vectorstore.as_retriever(search_type = "similarity", k=4)
+    dense_retriever = vectorstore.as_retriever(search_type = "similarity", k=4)
+
+    sparse_retriever = BM25Retriever.from_texts(chunks)
+    sparse_retriever.k = 4
+
+    retriever = EnsembleRetriever(
+        retrievers=[dense_retriever, sparse_retriever],
+        weights=[0.5, 0.5],
+    )
     
     model = init_chat_model(
         model="llama-3.3-70b-versatile",

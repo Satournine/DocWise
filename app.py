@@ -17,21 +17,23 @@ if "summary" not in st.session_state:
     st.session_state.summary = ""
 
 # File upload
-uploaded_file = st.file_uploader("Upload a PDF or TXT file", type=["pdf", "txt"])
-if uploaded_file:
+uploaded_files = st.file_uploader("Upload a PDF or TXT file", type=["pdf", "txt"], accept_multiple_files=True)
+if uploaded_files:
     upload_dir = "data"
     os.makedirs(upload_dir, exist_ok=True)
-
-    file_path = os.path.join(upload_dir, uploaded_file.name)
-    with open(file_path, "wb") as f:
-        f.write(uploaded_file.read())
+    file_paths = []
+    for uploaded_file in uploaded_files:
+        file_path = os.path.join(upload_dir, uploaded_file.name)
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.read())
+        file_paths.append(file_path)
 
     st.success("✅ File uploaded")
 
     # Run document setup graph (parse + summarize)
     graph = get_graph()
     state = {
-        "file_path": file_path,
+        "file_paths": file_paths,
         "query": "",
         "messages": [],
     }

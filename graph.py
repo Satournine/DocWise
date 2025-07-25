@@ -8,7 +8,7 @@ import os
 from typing import Callable
 
 class DocAgentState(TypedDict):
-    file_path: str
+    file_paths: List[str]
     messages: Annotated[List[BaseMessage], add_messages] #chat hist
     document_chunks: List[str] #doc chunks
     summary: str #generated sum
@@ -17,12 +17,16 @@ class DocAgentState(TypedDict):
 
 
 def parse_and_chunk_document(state: DocAgentState) -> DocAgentState:
-    file_path = state.get("file_path")
-    if not file_path or not os.path.exists(file_path):
+    file_paths = state.get("file_paths")
+    if not file_paths:
         raise ValueError("File path missing or file does not exist.")
     
-    text = load_document(file_path)
-    chunks = chunk_text(text)
+    all_text = "" #to merge everything
+    for path in file_paths:
+        if os.path.exists(path):
+            all_text += load_document(path) + "\n"
+
+    chunks = chunk_text(all_text)
 
     return{
         **state,
@@ -35,7 +39,7 @@ def summarize_document(state: DocAgentState) -> DocAgentState:
 
     text = "\n".join(chunks[:10])
     chain = get_summary_chain()
-    summary = chain.run({"document": text})
+    summary = chain.invoke({"document": text})
 
     return {
         **state,
