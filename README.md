@@ -43,8 +43,7 @@
 - 📄 **Parsing**: PyMuPDF & LangChain TextSplitter
 - 🖼️ **Frontend**: Streamlit (custom chat UI)
 - 🧪 **Vector DB**: In-memory FAISS
-- 🐍 **Python**: 3.11+ (see [`requirements.txt`](./requirements.txt))
-
+- 🐍 **Python**: 3.9+ 
 ---
 
 ## 🚢 Deployment
