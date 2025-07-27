@@ -1,11 +1,12 @@
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
-from typing import TypedDict, Annotated, List, Union
-from langchain.schema import HumanMessage, AIMessage, BaseMessage
+from typing import TypedDict, Annotated, List
+from langchain.schema import BaseMessage
 from chains import get_summary_chain, get_qa_chain
 from utils import load_document, chunk_text
 import os
 from typing import Callable
+from langchain_core.documents import Document
 
 class DocAgentState(TypedDict):
     file_paths: List[str]
@@ -21,23 +22,23 @@ def parse_and_chunk_document(state: DocAgentState) -> DocAgentState:
     if not file_paths:
         raise ValueError("File path missing or file does not exist.")
     
-    all_text = "" #to merge everything
+    all_chunks = [] #to merge everything
     for path in file_paths:
         if os.path.exists(path):
-            all_text += load_document(path) + "\n"
-
-    chunks = chunk_text(all_text)
-
+            text = load_document(path)
+            chunks = chunk_text(text, file_name=os.path.basename(path))
+            docs = [Document(page_content=chunk["page_content"], metadata=chunk["metadata"]) for chunk in chunks]
+            all_chunks.extend(docs)
     return{
         **state,
-        "document_chunks": chunks,
+        "document_chunks": all_chunks,
     }
 def summarize_document(state: DocAgentState) -> DocAgentState:
     chunks = state.get("document_chunks", [])
     if not chunks:
         raise ValueError("No document chunks to summarize.")
 
-    text = "\n".join(chunks[:10])
+    text = "\n".join([doc.page_content for doc in chunks[:10]])
     chain = get_summary_chain()
     summary = chain.invoke({"document": text})
 
@@ -53,11 +54,13 @@ def answer_query(state: DocAgentState) -> DocAgentState:
         raise ValueError("Missing query or document.")
 
     qa = get_qa_chain(chunks)
-    answer = qa.invoke({"input": query})
+    result = qa.invoke({"input": query})
+    answer_text = result["answer"]
+    source_files = list({doc.metadata.get("source") for doc in result.get("context", []) if doc.metadata.get("source")})
 
     return {
         **state,
-        "answer": answer,
+        "answer": f"{answer_text}\n\n Sources:{', '.join(source_files)}" if source_files else answer_text,
     }
 
 

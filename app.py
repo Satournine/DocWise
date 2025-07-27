@@ -2,8 +2,8 @@ import streamlit as st
 import os
 from graph import get_graph
 from chains import get_qa_chain
-from langchain.schema import HumanMessage
-import tempfile
+import streamlit as st
+from streamlit.components.v1 import html
 
 st.set_page_config(page_title="DocWise AI", layout="centered")
 st.title("📄 DocWise: Smart Document Assistant")
@@ -37,33 +37,70 @@ if uploaded_files:
         "query": "",
         "messages": [],
     }
-    result = graph.invoke(state)
+    if uploaded_files and not st.session_state.summary:
 
-    st.session_state.document_chunks = result.get("document_chunks", [])
-    st.session_state.summary = result.get("summary", "")
+        result = graph.invoke(state)
+
+        st.session_state.document_chunks = result.get("document_chunks", [])
+        st.session_state.summary = result.get("summary", "")
 
     st.success("✅ Document processed")
+
+all_sources = list({doc.metadata["source"] for doc in st.session_state.document_chunks})
+selected_source = st.selectbox("Choose document to query:", ["All Documents"] + sorted(all_sources))
 
 # Show summary if available
 if st.session_state.summary:
     with st.expander("📌 Summary"):
         st.write(st.session_state.summary)
 
-# User input for Q&A
-user_input = st.text_input("Ask a question about the document:")
-if st.button("Ask") and user_input:
-    if not st.session_state.document_chunks:
-        st.warning("Please upload and process a document first.")
-    else:
-        qa_chain = get_qa_chain(st.session_state.document_chunks)
-        answer = qa_chain.invoke({"input": user_input})
-
-        st.session_state.chat_history.append(("You", user_input))
-        st.session_state.chat_history.append(("DocWise", answer["answer"]))
-
-# Chat history
+# Chat history (scrollable)
 if st.session_state.chat_history:
     st.markdown("---")
     st.subheader("🧠 Chat History")
+    st.markdown(
+        """
+        <div style='max-height: 400px; overflow-y: auto; padding-right:8px;'>
+        """,
+        unsafe_allow_html=True
+    )
     for role, msg in st.session_state.chat_history:
-        st.markdown(f"**{role}:** {msg}")
+        icon = "🧑‍💻" if role == "You" else "🤖"
+        bubble_color = "#634DB2" if role == "You" else "#8371C1"
+        st.markdown(
+            f"""
+            <div style='border-radius:8px; padding:10px; margin:8px 0; background-color:{bubble_color};'>
+            <b>{icon} {role}</b><br>{msg}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# User input for Q&A at the bottom with Enter-to-send
+user_input = st.chat_input("Ask something about the document...")
+if user_input:
+    if not st.session_state.document_chunks:
+        st.warning("Please upload and process a document first.")
+    else:
+        # Add user message immediately
+        st.session_state.chat_history.append(("You", user_input))
+        # Add placeholder bot response
+        st.session_state.chat_history.append(("DocWise", "✍️ *DocWise is thinking...*"))
+        st.rerun()  # Refresh immediately to show both
+
+# After rerun: If last message is placeholder, replace it with real answer
+if st.session_state.chat_history:
+    last_msg = st.session_state.chat_history[-1]
+    if last_msg[0] == "DocWise" and "DocWise is thinking" in last_msg[1]:
+        if selected_source != "All Documents":
+            filtered_chunks = [doc for doc in st.session_state.document_chunks if doc.metadata["source"] == selected_source]
+        else:
+            filtered_chunks = st.session_state.document_chunks
+
+        qa_chain = get_qa_chain(filtered_chunks)
+        answer = qa_chain.invoke({"input": st.session_state.chat_history[-2][1]})
+
+        # Replace placeholder with real answer
+        st.session_state.chat_history[-1] = ("DocWise", answer["answer"])
+        st.rerun()

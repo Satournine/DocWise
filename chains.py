@@ -1,8 +1,8 @@
 from langchain.chat_models import init_chat_model
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
 from langchain.chains import create_retrieval_chain
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -35,10 +35,10 @@ def get_summary_chain():
 
 def get_qa_chain(chunks: list[str]):
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    vectorstore = FAISS.from_texts(chunks, embeddings)
+    vectorstore = FAISS.from_documents(chunks, embeddings)
     dense_retriever = vectorstore.as_retriever(search_type = "similarity", k=4)
 
-    sparse_retriever = BM25Retriever.from_texts(chunks)
+    sparse_retriever = BM25Retriever.from_texts([doc.page_content for doc in chunks])
     sparse_retriever.k = 4
 
     retriever = EnsembleRetriever(
@@ -52,7 +52,7 @@ def get_qa_chain(chunks: list[str]):
     )
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "Use the following context to answer the questions."),
+        ("system", "Use the following context to answer the questions. Cite the source (metadata 'source') of each piece of information inline, like [source.txt]. If there is only one source cite it at the end of the paragraph."),
         ("human", "Context:\n{context}\n\nQuestion:\n{input}")
     ])
 

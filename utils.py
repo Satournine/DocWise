@@ -14,9 +14,10 @@ def load_document(file_path: str) -> str:
     else:
         raise ValueError("Unsupported file type")
     
-def chunk_text(text: str, chunk_size=500, chunk_overlap=50):
+def chunk_text(text: str, chunk_size=500, chunk_overlap=50, file_name="unknown.txt"):
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size = chunk_size,
+        chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
     )
-    return splitter.split_text(text)
+    chunks = splitter.split_text(text)
+    return [{"page_content": chunk, "metadata": {"source": file_name, "chunk_index": i}} for i, chunk in enumerate(chunks)]
