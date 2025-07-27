@@ -8,13 +8,11 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.retrievers import BM25Retriever
 from langchain.retrievers import EnsembleRetriever
+import streamlit as st
 import os
-from dotenv import load_dotenv
 
 
-load_dotenv()
-if "GROQ_API_KEY" not in os.environ:
-    os.environ["GROQ_API_KEY"] = input("Enter your Groq API key: ")
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 
 def get_summary_chain():
     prompt = PromptTemplate(
