@@ -5,3 +5,4 @@ langgraph==0.5.4
 pymupdf==1.26.3
 python-dotenv==1.1.1
 streamlit==1.47.0
+langchain-groq

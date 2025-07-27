@@ -10,9 +10,23 @@ from langchain_community.retrievers import BM25Retriever
 from langchain.retrievers import EnsembleRetriever
 import streamlit as st
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
-
-GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+def get_api_key():
+    # Try secrets (Streamlit Cloud)
+    try:
+        if "GROQ_API_KEY" in st.secrets:
+            return st.secrets["GROQ_API_KEY"]
+    except Exception:
+        pass
+    
+    # Try local .env or OS env
+    if "GROQ_API_KEY" in os.environ:
+        return os.environ["GROQ_API_KEY"]
+    
+    # If nothing found, raise error
+    raise ValueError("GROQ_API_KEY not found in st.secrets or environment variables.")
 
 def get_summary_chain():
     prompt = PromptTemplate(
@@ -47,6 +61,7 @@ def get_qa_chain(chunks: list[str]):
     model = init_chat_model(
         model="llama-3.3-70b-versatile",
         model_provider="groq",
+        api_key = get_api_key(),
     )
 
     prompt = ChatPromptTemplate.from_messages([
